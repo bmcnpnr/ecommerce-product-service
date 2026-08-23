@@ -1,0 +1,134 @@
+{
+  "consumer": {
+    "name": "review-service"
+  },
+  "interactions": [
+    {
+      "comments": {
+        "testname": "com.ecommerce.reviewservice.contract.ProductServiceConsumerPactTest.createReview_checksTheProductExists_thenStoresTheReview()",
+        "text": [
+
+        ]
+      },
+      "description": "a request for product 1",
+      "key": "b3eda327",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/products/1"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "id": 1
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "comments": {
+        "testname": "com.ecommerce.reviewservice.contract.ProductServiceConsumerPactTest.createReview_unknownProduct_isRejectedAndNothingIsStored()",
+        "text": [
+
+        ]
+      },
+      "description": "a request for product 999",
+      "key": "787cef00",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 999 does not exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/products/999"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "error": "Not Found",
+            "message": "Product not found with id: 999",
+            "status": 404
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.error": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.message": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 404
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.7.5"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "product-service"
+  }
+}

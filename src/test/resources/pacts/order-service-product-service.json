@@ -1,0 +1,389 @@
+{
+  "consumer": {
+    "name": "order-service"
+  },
+  "interactions": [
+    {
+      "comments": {
+        "testname": "com.ecommerce.order.contract.ProductServiceConsumerPactTest.addItemToOrder_readsNamePriceAndStock_andReservesStock()",
+        "text": [
+
+        ]
+      },
+      "description": "a request for product 1",
+      "key": "b3eda327",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/products/1"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "id": 1,
+            "name": "Wireless Mouse",
+            "price": 49.99,
+            "sku": "SKU-001",
+            "stockQuantity": 50
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.sku": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.stockQuantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "comments": {
+        "testname": "com.ecommerce.order.contract.ProductServiceConsumerPactTest.updateStock_insufficientStock_surfacesAsFeignBadRequest()",
+        "text": [
+
+        ]
+      },
+      "description": "a request to reserve 1000 units of product 1",
+      "key": "d08876a4",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "delta": -1000
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "PATCH",
+        "path": "/api/v1/products/1/stock"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "error": "Bad Request",
+            "message": "Insufficient stock for product SKU-001. Available: 50, Requested: 1000",
+            "status": 400
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.error": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.message": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 400
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "comments": {
+        "testname": "com.ecommerce.order.contract.ProductServiceConsumerPactTest.addItemToOrder_readsNamePriceAndStock_andReservesStock()",
+        "text": [
+
+        ]
+      },
+      "description": "a request to reserve 2 units of product 1",
+      "key": "cb105ff9",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "delta": -2
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "PATCH",
+        "path": "/api/v1/products/1/stock"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "id": 1,
+            "stockQuantity": 48
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.stockQuantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "comments": {
+        "testname": "com.ecommerce.order.contract.ProductServiceConsumerPactTest.cancelOrder_restoresStockPerItem()",
+        "text": [
+
+        ]
+      },
+      "description": "a request to restore 2 units of product 1",
+      "key": "c1783fb3",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "delta": 2
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "method": "PATCH",
+        "path": "/api/v1/products/1/stock"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "id": 1,
+            "stockQuantity": 52
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.stockQuantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "comments": {
+        "testname": "com.ecommerce.order.contract.ProductServiceConsumerPactTest.getProductById_unknownProduct_surfacesAsFeignNotFound()",
+        "text": [
+
+        ]
+      },
+      "description": "a request for product 999",
+      "key": "787cef00",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 999 does not exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/products/999"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "error": "Not Found",
+            "message": "Product not found with id: 999",
+            "status": 404
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.error": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.message": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 404
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.7.5"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "product-service"
+  }
+}

@@ -1,0 +1,284 @@
+{
+  "consumer": {
+    "name": "catalog-service"
+  },
+  "interactions": [
+    {
+      "comments": {
+        "testname": "com.ecommerce.catalogservice.contract.ProductServiceConsumerPactTest.syncFromProductService projects the product and its category name into a catalog entry()",
+        "text": [
+
+        ]
+      },
+      "description": "a request for all categories",
+      "key": "c4b62913",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "categories exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/categories"
+      },
+      "response": {
+        "body": {
+          "content": [
+            {
+              "description": "Devices and accessories",
+              "id": 10,
+              "name": "Electronics"
+            }
+          ],
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$[*].description": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$[*].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "comments": {
+        "testname": "com.ecommerce.catalogservice.contract.ProductServiceConsumerPactTest.syncFromProductService projects the product and its category name into a catalog entry()",
+        "text": [
+
+        ]
+      },
+      "description": "a request for product 1",
+      "key": "b3eda327",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/products/1"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "brand": "Logi",
+            "categoryId": 10,
+            "description": "Ergonomic wireless mouse",
+            "id": 1,
+            "name": "Wireless Mouse",
+            "price": 49.99,
+            "sku": "SKU-001",
+            "status": "ACTIVE",
+            "stockQuantity": 50
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.brand": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.categoryId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.description": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.sku": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.stockQuantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "comments": {
+        "testname": "com.ecommerce.catalogservice.contract.ProductServiceConsumerPactTest.syncFromProductService propagates a 404 from product-service as FeignException NotFound()",
+        "text": [
+
+        ]
+      },
+      "description": "a request for product 999",
+      "key": "787cef00",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 999 does not exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/products/999"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "error": "Not Found",
+            "message": "Product not found with id: 999",
+            "status": 404
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.error": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.message": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 404
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.7.5"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "product-service"
+  }
+}
