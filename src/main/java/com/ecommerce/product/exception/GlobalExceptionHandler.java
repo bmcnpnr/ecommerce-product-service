@@ -67,28 +67,96 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // Spring MVC raises these for malformed client requests. Without explicit
-    // handlers they fall through to the Exception catch-all below and are
-    // reported as 500, hiding the fact that the caller sent something invalid.
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorized(HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(buildError(HttpStatus.UNAUTHORIZED, "Unauthorized", "Authentication required", request.getRequestURI()));
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(buildError(HttpStatus.FORBIDDEN, "Forbidden", "Access denied", request.getRequestURI()));
+    }
+
+    // Spring MVC raises these for malformed client requests. Messages are fixed per error kind so
+    // nothing from the parser, the type system or the database reaches the caller.
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpServletRequest request) {
+        return client(HttpStatus.METHOD_NOT_ALLOWED, "Method not allowed", request);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleUnsupportedMediaType(HttpServletRequest request) {
+        return client(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported media type", request);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<ErrorResponse> handleNotAcceptable(HttpServletRequest request) {
+        return client(HttpStatus.NOT_ACCEPTABLE, "Not acceptable", request);
+    }
+
     @ExceptionHandler({
-            org.springframework.web.HttpRequestMethodNotSupportedException.class,
-            org.springframework.web.bind.MissingServletRequestParameterException.class,
-            org.springframework.web.bind.ServletRequestBindingException.class,
-            org.springframework.http.converter.HttpMessageNotReadableException.class,
-            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class
+            org.springframework.web.servlet.resource.NoResourceFoundException.class,
+            org.springframework.web.servlet.NoHandlerFoundException.class
     })
-    public ResponseEntity<ErrorResponse> handleClientError(Exception ex, HttpServletRequest httpRequest) {
-        HttpStatus status = (ex instanceof org.springframework.web.HttpRequestMethodNotSupportedException)
-                ? HttpStatus.METHOD_NOT_ALLOWED
-                : HttpStatus.BAD_REQUEST;
-        return ResponseEntity.status(status).body(ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(status.value())
-                .error(status.getReasonPhrase())
-                .message(ex.getMessage())
-                .path(httpRequest.getRequestURI())
-                .correlationId(MDC.get("correlationId"))
-                .build());
+    public ResponseEntity<ErrorResponse> handleNoResource(HttpServletRequest request) {
+        return client(HttpStatus.NOT_FOUND, "Resource not found", request);
+    }
+
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParam(
+            org.springframework.web.bind.MissingServletRequestParameterException ex, HttpServletRequest request) {
+        return client(HttpStatus.BAD_REQUEST, "Missing required parameter '" + safeName(ex.getParameterName()) + "'", request);
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        return client(HttpStatus.BAD_REQUEST, "Invalid value for parameter '" + safeName(ex.getName()) + "'", request);
+    }
+
+    @ExceptionHandler({
+            org.springframework.web.bind.ServletRequestBindingException.class,
+            org.springframework.http.converter.HttpMessageNotReadableException.class
+    })
+    public ResponseEntity<ErrorResponse> handleUnreadable(HttpServletRequest request) {
+        return client(HttpStatus.BAD_REQUEST, "Malformed request body", request);
+    }
+
+    @ExceptionHandler(org.springframework.data.core.PropertyReferenceException.class)
+    public ResponseEntity<ErrorResponse> handleBadSort(HttpServletRequest request) {
+        return client(HttpStatus.BAD_REQUEST, "Invalid sort property", request);
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(
+            org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        if (isUniqueViolation(ex)) {
+            return client(HttpStatus.CONFLICT, "Resource already exists", request);
+        }
+        return handleGeneral(ex, request);
+    }
+
+    private static boolean isUniqueViolation(Throwable ex) {
+        for (Throwable t = ex; t != null; t = t.getCause()) {
+            if (t instanceof java.sql.SQLException sql && "23505".equals(sql.getSQLState())) {
+                return true;
+            }
+            if (t.getCause() == t) break;
+        }
+        return false;
+    }
+
+    /** Parameter names come from our own signatures, but keep the echo to harmless characters anyway. */
+    private static String safeName(String name) {
+        String cleaned = name == null ? "" : name.replaceAll("[^A-Za-z0-9_.-]", "");
+        return cleaned.substring(0, Math.min(64, cleaned.length()));
+    }
+
+    private ResponseEntity<ErrorResponse> client(HttpStatus status, String message, HttpServletRequest request) {
+        return ResponseEntity.status(status)
+                .body(buildError(status, status.getReasonPhrase(), message, request.getRequestURI()));
     }
 
     @ExceptionHandler(Exception.class)

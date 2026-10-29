@@ -44,7 +44,7 @@ class CategoryControllerTest {
         when(productService.createCategory(any())).thenReturn(
                 CategoryDTO.builder().id(11L).name("Mice").description("Pointing devices").parentCategoryId(10L).build());
 
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/categories").header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -57,7 +57,7 @@ class CategoryControllerTest {
 
     @Test
     void createCategory_blankName_returns400WithFieldError() throws Exception {
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/categories").header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"  \"}"))
                 .andExpect(status().isBadRequest())
@@ -70,7 +70,7 @@ class CategoryControllerTest {
 
     @Test
     void createCategory_nameTooLong_returns400() throws Exception {
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/categories").header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"" + "x".repeat(101) + "\"}"))
                 .andExpect(status().isBadRequest())
@@ -81,7 +81,7 @@ class CategoryControllerTest {
     void createCategory_duplicate_returns409() throws Exception {
         when(productService.createCategory(any())).thenThrow(new ProductAlreadyExistsException("Category already exists: Mice"));
 
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/categories").header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Mice\"}"))
                 .andExpect(status().isConflict())

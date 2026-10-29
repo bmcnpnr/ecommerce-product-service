@@ -92,11 +92,11 @@ class ProductInjectionSecurityIT extends ProductSecurityITSupport {
     void storedPayloadsInWrites_areKeptAsLiteralData() {
         String evilSku = "x'); DROP TABLE products;--";
         String evilName = "Robert'); DROP TABLE categories;--";
-        client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(productBody("SKU-E", evilName, "5.00", 1)).exchange().expectStatus().isCreated();
-        client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(productBody(evilSku, "Plain", "5.00", 1)).exchange().expectStatus().isCreated();
-        client.post().uri("/api/v1/categories").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/categories").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("name", "x' OR '1'='1", "description", "'; DROP TABLE products;--")).exchange().expectStatus().isCreated();
 
         assertThat(jdbc.queryForObject("SELECT name FROM products WHERE sku = 'SKU-E'", String.class)).isEqualTo(evilName);
@@ -122,7 +122,6 @@ class ProductInjectionSecurityIT extends ProductSecurityITSupport {
                         });
     }
 
-    @Disabled("BUG S-47: an unknown sort property (sort=password, sort=name;drop) raises PropertyReferenceException, which surfaces as 500 instead of 400")
     @ParameterizedTest(name = "sort=\"{0}\" is rejected as a client error, not a 500")
     @ValueSource(strings = {"password", "passwordHash", "name;drop table products", "name,asc;select 1", "id) desc, (select 1", "../../x",
             "createdAt,sideways", "status'--"})
@@ -141,18 +140,17 @@ class ProductInjectionSecurityIT extends ProductSecurityITSupport {
     }
 
     @Test
-    void pageSize_hugeValues_areCappedNotDumped() {
+    void pageSize_aboveMaximum_isRejectedNotDumped() {
         for (int i = 0; i < 30; i++) {
             jdbc.update("INSERT INTO products (sku, name, price, stock_quantity, status) VALUES (?, ?, 1.00, 1, 'ACTIVE')", "BULK-" + i, "Bulk " + i);
         }
-        client.get().uri("/api/v1/products?size=100000000").exchange()
+        // above the maximum page size of 100 the request is refused (400) instead of dumping the collection
+        client.get().uri("/api/v1/products?size=100000000").exchange().expectStatus().isBadRequest();
+        client.get().uri("/api/v1/products/search?q=Bulk&size=2147483647").exchange().expectStatus().isBadRequest();
+        client.get().uri("/api/v1/products?size=101").exchange().expectStatus().isBadRequest();
+        client.get().uri("/api/v1/products?size=100").exchange()
                 .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.size").value(size -> assertThat(((Number) size).intValue()).isLessThanOrEqualTo(2000));
-        client.get().uri("/api/v1/products/search?q=Bulk&size=2147483647").exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$.size").value(size -> assertThat(((Number) size).intValue()).isLessThanOrEqualTo(2000));
+                .expectBody().jsonPath("$.size").isEqualTo(100);
     }
 
     @ParameterizedTest(name = "paging {0} is a 4xx or a safe default, never a 500")
@@ -163,7 +161,6 @@ class ProductInjectionSecurityIT extends ProductSecurityITSupport {
     }
 
     @Test
-    @Disabled("BUG S-46: page * size overflowing the 32-bit/BIGINT offset (page=2147483647&size=2000) makes PostgreSQL fail and the API answers 500")
     void pagingParameters_overflowingOffset_isNot500() {
         client.get().uri("/api/v1/products?page=2147483647&size=2000").exchange()
                 .expectStatus().value(s -> assertThat(s).isLessThan(500));
@@ -194,10 +191,9 @@ class ProductInjectionSecurityIT extends ProductSecurityITSupport {
                 .doesNotContain("org.hibernate").doesNotContain("PSQLException").doesNotContain("syntax error");
     }
 
-    @Disabled("BUG S-45: a NUL character in a text field makes PostgreSQL reject the INSERT and the API answers 500 instead of 400")
     @Test
     void textFields_withNulCharacter_are400() {
-        client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(productBody("NUL-1", "bad\u0000name", "5.00", 1))
                 .exchange().expectStatus().isBadRequest();
         assertThat(countProducts()).isEqualTo(4);

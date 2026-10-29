@@ -59,8 +59,29 @@ class ProductServiceProviderPactTest {
 
     @TestTemplate
     @ExtendWith(PactVerificationInvocationContextProvider.class)
-    void verifyPact(PactVerificationContext context) {
+    void verifyPact(PactVerificationContext context, HttpRequest request) {
+        actAsGateway(request);
         context.verifyInteraction();
+    }
+
+    /**
+     * Plays the gateway: the frontend pacts carry a bearer token, the service only trusts the identity headers
+     * the gateway derives from it. The payload is decoded without verifying the (test-only) signature.
+     */
+    void actAsGateway(HttpRequest request) {
+        Header auth = request.getFirstHeader("Authorization");
+        if (auth == null) return;
+        Matcher m = Pattern.compile("^Bearer [^.]+\\.([^.]+)\\.").matcher(auth.getValue());
+        if (!m.find()) return;
+        String payload = new String(Base64.getUrlDecoder().decode(m.group(1)), StandardCharsets.UTF_8);
+        request.setHeader("X-Username", claim(payload, "\"sub\":\"([^\"]+)\""));
+        request.setHeader("X-User-Id", claim(payload, "\"userId\":(\\d+)"));
+        request.setHeader("X-User-Role", claim(payload, "\"role\":\"([^\"]+)\""));
+    }
+
+    private static String claim(String payload, String regex) {
+        Matcher m = Pattern.compile(regex).matcher(payload);
+        return m.find() ? m.group(1) : "";
     }
 
     // ───────────────────────── provider states ─────────────────────────

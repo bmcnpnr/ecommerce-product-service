@@ -81,7 +81,6 @@ class ProductAuthorizationSecurityTest {
         return b;
     }
 
-    @Disabled("BUG S-1: product write endpoints never read X-User-Role; any caller (CUSTOMER, no headers, wrong-case ADMIN) is accepted")
     @ParameterizedTest(name = "{0} as role [{1}] is 403 and never reaches the service")
     @MethodSource("nonAdminCallers")
     void writeEndpoint_nonAdmin_isForbidden(Write w, String role) throws Exception {

@@ -63,7 +63,7 @@ class GlobalExceptionHandlerTest {
     void duplicateSku_is409() throws Exception {
         when(productService.createProduct(any())).thenThrow(new ProductAlreadyExistsException("Product with SKU already exists: SKU-1"));
 
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"sku\":\"SKU-1\",\"name\":\"N\",\"price\":1.00,\"stockQuantity\":1}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
@@ -76,7 +76,7 @@ class GlobalExceptionHandlerTest {
         when(productService.updateStock(eq(1L), eq(-5)))
                 .thenThrow(new InsufficientStockException("Insufficient stock for product SKU-1. Available: 2, Requested: 5"));
 
-        mockMvc.perform(patch("/api/v1/products/1/stock").contentType(MediaType.APPLICATION_JSON).content("{\"delta\":-5}"))
+        mockMvc.perform(patch("/api/v1/products/1/stock").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).content("{\"delta\":-5}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Bad Request"))
                 .andExpect(jsonPath("$.message").value("Insufficient stock for product SKU-1. Available: 2, Requested: 5"));
@@ -84,7 +84,7 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void validation_is400_withOneFieldErrorPerViolation() throws Exception {
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"sku\":\"\",\"name\":\"\",\"price\":0,\"stockQuantity\":-1}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Validation failed"))
@@ -95,14 +95,14 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void validation_missingRequiredFields_is400() throws Exception {
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors", hasSize(4)));
     }
 
     @Test
     void stockUpdate_missingDelta_is400() throws Exception {
-        mockMvc.perform(patch("/api/v1/products/1/stock").contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mockMvc.perform(patch("/api/v1/products/1/stock").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors[0].field").value("delta"))
                 .andExpect(jsonPath("$.fieldErrors[0].message").value("Delta is required"));
@@ -110,14 +110,14 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void updateProduct_nonPositivePrice_is400() throws Exception {
-        mockMvc.perform(put("/api/v1/products/1").contentType(MediaType.APPLICATION_JSON).content("{\"price\":0}"))
+        mockMvc.perform(put("/api/v1/products/1").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).content("{\"price\":0}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors[0].field").value("price"));
     }
 
     @Test
     void malformedJson_is400() throws Exception {
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON).content("{not json"))
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).content("{not json"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
     }
@@ -137,7 +137,7 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void methodNotAllowed_is405() throws Exception {
-        mockMvc.perform(post("/api/v1/products/1"))
+        mockMvc.perform(post("/api/v1/products/1").header("X-User-Role", "ADMIN"))
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(jsonPath("$.status").value(405))
                 .andExpect(jsonPath("$.error").value("Method Not Allowed"));

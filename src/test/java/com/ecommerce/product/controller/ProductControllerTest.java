@@ -43,7 +43,7 @@ class ProductControllerTest {
 
         when(productService.createProduct(any())).thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/products")
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -74,7 +74,7 @@ class ProductControllerTest {
         StockUpdateRequest request = new StockUpdateRequest(-1000);
         when(productService.updateStock(eq(1L), eq(-1000))).thenThrow(new InsufficientStockException("Insufficient stock"));
 
-        mockMvc.perform(patch("/api/v1/products/1/stock")
+        mockMvc.perform(patch("/api/v1/products/1/stock").header("X-User-Role", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -141,7 +141,7 @@ class ProductControllerTest {
         when(productService.updateProduct(eq(1L), any())).thenReturn(
                 ProductDTO.builder().id(1L).name("Renamed").price(new BigDecimal("5.00")).build());
 
-        mockMvc.perform(put("/api/v1/products/1")
+        mockMvc.perform(put("/api/v1/products/1").header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -152,7 +152,7 @@ class ProductControllerTest {
     void updateProduct_notFound_returns404() throws Exception {
         when(productService.updateProduct(eq(9L), any())).thenThrow(new ProductNotFoundException("Product not found with id: 9"));
 
-        mockMvc.perform(put("/api/v1/products/9").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"x\"}"))
+        mockMvc.perform(put("/api/v1/products/9").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"x\"}"))
                 .andExpect(status().isNotFound());
     }
 
@@ -160,7 +160,7 @@ class ProductControllerTest {
     void updateStock_returns200() throws Exception {
         when(productService.updateStock(1L, 5)).thenReturn(ProductDTO.builder().id(1L).stockQuantity(15).status("ACTIVE").build());
 
-        mockMvc.perform(patch("/api/v1/products/1/stock")
+        mockMvc.perform(patch("/api/v1/products/1/stock").header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new StockUpdateRequest(5))))
                 .andExpect(status().isOk())
@@ -169,7 +169,7 @@ class ProductControllerTest {
 
     @Test
     void deleteProduct_returns204() throws Exception {
-        mockMvc.perform(delete("/api/v1/products/1"))
+        mockMvc.perform(delete("/api/v1/products/1").header("X-User-Role", "ADMIN"))
                 .andExpect(status().isNoContent());
 
         verify(productService).deleteProduct(1L);
@@ -179,7 +179,7 @@ class ProductControllerTest {
     void deleteProduct_notFound_returns404() throws Exception {
         doThrow(new ProductNotFoundException("nope")).when(productService).deleteProduct(9L);
 
-        mockMvc.perform(delete("/api/v1/products/9"))
+        mockMvc.perform(delete("/api/v1/products/9").header("X-User-Role", "ADMIN"))
                 .andExpect(status().isNotFound());
     }
 
@@ -188,7 +188,7 @@ class ProductControllerTest {
         CreateProductRequest request = CreateProductRequest.builder()
                 .sku("").name("").price(new BigDecimal("-1")).stockQuantity(-5).build();
 
-        mockMvc.perform(post("/api/v1/products")
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());

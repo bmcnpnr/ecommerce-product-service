@@ -119,7 +119,7 @@ class ProductApiIT extends PostgresIntegrationTestSupport {
                 .jsonPath("$.status").isEqualTo("ACTIVE");
 
         // update + soft delete
-        client.put().uri("/api/v1/products/{id}", mouse.getId())
+        client.put().uri("/api/v1/products/{id}", mouse.getId()).header("X-User-Role", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("price", new BigDecimal("17.25"), "name", "Wireless Mouse v2"))
                 .exchange()
@@ -127,9 +127,10 @@ class ProductApiIT extends PostgresIntegrationTestSupport {
                 .expectBody()
                 .jsonPath("$.name").isEqualTo("Wireless Mouse v2")
                 .jsonPath("$.updatedAt").exists();
-        client.delete().uri("/api/v1/products/{id}", mouse.getId()).exchange()
+        client.delete().uri("/api/v1/products/{id}", mouse.getId()).header("X-User-Role", "ADMIN").exchange()
                 .expectStatus().isNoContent();
-        client.get().uri("/api/v1/products/{id}", mouse.getId()).exchange()
+        client.get().uri("/api/v1/products/{id}", mouse.getId()).exchange().expectStatus().isNotFound();
+        client.get().uri("/api/v1/products/{id}", mouse.getId()).header("X-User-Role", "ADMIN").exchange()
                 .expectStatus().isOk()
                 .expectBody().jsonPath("$.status").isEqualTo("INACTIVE");
         client.get().uri("/api/v1/products").exchange()
@@ -142,7 +143,7 @@ class ProductApiIT extends PostgresIntegrationTestSupport {
         CategoryDTO cat = createCategory("Books", null);
         createProduct("BOOK-1", "Novel", "9.99", 1, cat.getId());
 
-        client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .header("X-Correlation-Id", "it-corr-1")
                 .body(productBody("BOOK-1", "Another", "1.00", 1, null))
                 .exchange()
@@ -151,16 +152,16 @@ class ProductApiIT extends PostgresIntegrationTestSupport {
                 .expectBody()
                 .jsonPath("$.message").isEqualTo("Product with SKU already exists: BOOK-1")
                 .jsonPath("$.correlationId").isEqualTo("it-corr-1");
-        client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(productBody("BOOK-2", "Orphan", "1.00", 1, 999L))
                 .exchange()
                 .expectStatus().isNotFound()
                 .expectBody().jsonPath("$.message").isEqualTo("Category not found: 999");
-        client.post().uri("/api/v1/categories").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/categories").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("name", "Books"))
                 .exchange()
                 .expectStatus().isEqualTo(409);
-        client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(productBody("", "", "0", -1, null))
                 .exchange()
                 .expectStatus().isBadRequest()
@@ -193,7 +194,7 @@ class ProductApiIT extends PostgresIntegrationTestSupport {
             results.add(pool.submit(() -> {
                 start.await();
                 HttpRequest req = HttpRequest.newBuilder(URI.create(
-                                "http://localhost:" + port + "/api/v1/products/" + product.getId() + "/stock"))
+                                "http://localhost:" + port + "/internal/v1/products/" + product.getId() + "/stock"))
                         .header("Content-Type", "application/json")
                         .method("PATCH", HttpRequest.BodyPublishers.ofString("{\"delta\":-1}"))
                         .build();
@@ -228,7 +229,7 @@ class ProductApiIT extends PostgresIntegrationTestSupport {
     void updateProduct_unknownStatus_is400() {
         ProductDTO product = createProduct("ST-1", "Status", "5.00", 3, null);
 
-        client.put().uri("/api/v1/products/{id}", product.getId())
+        client.put().uri("/api/v1/products/{id}", product.getId()).header("X-User-Role", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("status", "DISCONTINUED"))
                 .exchange()
@@ -239,7 +240,7 @@ class ProductApiIT extends PostgresIntegrationTestSupport {
     void updateProduct_unknownCategory_is404() {
         ProductDTO product = createProduct("CAT-1", "Category", "5.00", 3, null);
 
-        client.put().uri("/api/v1/products/{id}", product.getId())
+        client.put().uri("/api/v1/products/{id}", product.getId()).header("X-User-Role", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("categoryId", 424242))
                 .exchange()
@@ -248,7 +249,7 @@ class ProductApiIT extends PostgresIntegrationTestSupport {
 
     @Test
     void createCategory_unknownParent_is404() {
-        client.post().uri("/api/v1/categories").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/categories").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("name", "Orphans", "parentCategoryId", 424242))
                 .exchange()
                 .expectStatus().isNotFound();
@@ -261,7 +262,7 @@ class ProductApiIT extends PostgresIntegrationTestSupport {
         body.put("name", name);
         body.put("description", name + " category");
         body.put("parentCategoryId", parentId);
-        return client.post().uri("/api/v1/categories").contentType(MediaType.APPLICATION_JSON)
+        return client.post().uri("/api/v1/categories").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .exchange()
                 .expectStatus().isCreated()
@@ -269,7 +270,7 @@ class ProductApiIT extends PostgresIntegrationTestSupport {
     }
 
     private ProductDTO createProduct(String sku, String name, String price, int stock, Long categoryId) {
-        return client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        return client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(productBody(sku, name, price, stock, categoryId))
                 .exchange()
                 .expectStatus().isCreated()
@@ -288,7 +289,7 @@ class ProductApiIT extends PostgresIntegrationTestSupport {
     }
 
     private RestTestClient.ResponseSpec patchStock(Long id, int delta) {
-        return client.patch().uri("/api/v1/products/{id}/stock", id)
+        return client.patch().uri("/api/v1/products/{id}/stock", id).header("X-User-Role", "ADMIN")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("delta", delta))
                 .exchange();

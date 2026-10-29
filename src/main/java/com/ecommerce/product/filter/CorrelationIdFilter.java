@@ -15,12 +15,13 @@ import java.util.UUID;
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
     private static final String CORRELATION_ID_HEADER = "X-Correlation-Id";
+    private static final java.util.regex.Pattern VALID = java.util.regex.Pattern.compile("^[A-Za-z0-9._-]{1,64}$");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String correlationId = request.getHeader(CORRELATION_ID_HEADER);
-        if (correlationId == null || correlationId.isBlank()) {
+        if (correlationId == null || !VALID.matcher(correlationId).matches()) {
             correlationId = UUID.randomUUID().toString();
         }
         MDC.put("correlationId", correlationId);

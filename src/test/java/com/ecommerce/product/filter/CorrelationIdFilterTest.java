@@ -82,4 +82,27 @@ class CorrelationIdFilterTest {
 
         assertThat(MDC.get("correlationId")).isNull();
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"has space", "<script>", "a/b", "ROLE	TAB"})
+    void replacesIncomingHeaderThatIsNotSafe(String hostile) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/x");
+        request.addHeader("X-Correlation-Id", hostile);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertThat(UUID.fromString(response.getHeader("X-Correlation-Id"))).isNotNull();
+    }
+
+    @Test
+    void replacesIncomingHeaderLongerThan64() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/x");
+        request.addHeader("X-Correlation-Id", "a".repeat(65));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertThat(response.getHeader("X-Correlation-Id")).hasSize(36);
+    }
 }

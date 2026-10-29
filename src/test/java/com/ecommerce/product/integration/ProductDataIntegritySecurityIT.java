@@ -30,13 +30,12 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
     }
 
     private void patchStock(long id, Object delta, int expectedStatus) {
-        client.patch().uri("/api/v1/products/{id}/stock", id).contentType(MediaType.APPLICATION_JSON)
+        client.patch().uri("/api/v1/products/{id}/stock", id).header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body("{\"delta\":" + delta + "}").exchange().expectStatus().isEqualTo(expectedStatus);
     }
 
     // ───────────────────────── authorization (S-1), with database proof ─────────────────────────
 
-    @Disabled("BUG S-1: a CUSTOMER (or no role at all) can create, edit, adjust stock of and delete products; the database changes")
     @Test
     void customer_cannotModifyCatalog_andDatabaseIsUntouched() {
         long id = createProduct("AUTH-1", "Original", "10.00", 5);
@@ -50,7 +49,7 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
         client.patch().uri("/api/v1/products/{id}/stock", id).contentType(MediaType.APPLICATION_JSON)
                 .header("X-User-Role", "CUSTOMER").body(Map.of("delta", -5)).exchange().expectStatus().isForbidden();
         client.delete().uri("/api/v1/products/{id}", id).header("X-User-Role", "CUSTOMER").exchange().expectStatus().isForbidden();
-        client.post().uri("/api/v1/categories").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/categories").header("X-User-Role", "CUSTOMER").header("X-Username", "mallory").contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("name", "Planted")).exchange().expectStatus().isForbidden();
 
         assertThat(countProducts()).isEqualTo(1);
@@ -63,7 +62,7 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
     @Test
     void reads_arePublic_withoutAnyIdentityHeaders() {
         long id = createProduct("PUB-1", "Public", "10.00", 5);
-        client.post().uri("/api/v1/categories").contentType(MediaType.APPLICATION_JSON).body(Map.of("name", "Pub")).exchange().expectStatus().isCreated();
+        client.post().uri("/api/v1/categories").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).body(Map.of("name", "Pub")).exchange().expectStatus().isCreated();
 
         for (String path : List.of("/api/v1/products", "/api/v1/products/" + id, "/api/v1/products/sku/PUB-1",
                 "/api/v1/products/search?q=pub", "/api/v1/categories", "/api/v1/categories/1")) {
@@ -137,7 +136,7 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
             Map<String, Object> body = productBody("XSS-" + i, XSS[i], "5.00", 1);
             body.put("description", XSS[i]);
             body.put("brand", XSS[i].substring(0, Math.min(20, XSS[i].length())));
-            client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON).body(body).exchange()
+            client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).body(body).exchange()
                     .expectStatus().isCreated()
                     .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
                     .expectBody().jsonPath("$.name").isEqualTo(XSS[i]).jsonPath("$.description").isEqualTo(XSS[i]);
@@ -161,7 +160,6 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
                 .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON);
     }
 
-    @Disabled("BUG S-43 (low): responses carry no X-Content-Type-Options: nosniff, so a browser may sniff stored markup in JSON bodies reached directly (compose publishes the port)")
     @Test
     void jsonResponses_sendNosniff() {
         createProduct("NS-1", "<script>alert(1)</script>", "5.00", 1);
@@ -182,7 +180,7 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
         body.put("role", "ADMIN");
         body.put("isAdmin", true);
 
-        client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON).body(body).exchange()
+        client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).body(body).exchange()
                 .expectStatus().isCreated()
                 .expectBody()
                 .jsonPath("$.id").value(id -> assertThat(((Number) id).longValue()).isNotEqualTo(9999L))
@@ -206,7 +204,7 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
         body.put("sku", "STOLEN-SKU");
         body.put("stockQuantity", 1_000_000);
         body.put("createdAt", "1999-01-01T00:00:00");
-        client.put().uri("/api/v1/products/{id}", id).contentType(MediaType.APPLICATION_JSON).body(body).exchange()
+        client.put().uri("/api/v1/products/{id}", id).header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).body(body).exchange()
                 .expectStatus().isOk()
                 .expectBody().jsonPath("$.id").isEqualTo((int) id).jsonPath("$.sku").isEqualTo("MASS-2").jsonPath("$.name").isEqualTo("After");
 
@@ -219,7 +217,7 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
 
     @Test
     void createCategory_cannotChooseItsOwnId() {
-        client.post().uri("/api/v1/categories").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/categories").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("name", "C1", "id", 500, "createdAt", "2000-01-01T00:00:00")).exchange().expectStatus().isCreated();
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM categories WHERE id = 500", Integer.class)).isZero();
@@ -228,7 +226,6 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
 
     // ───────────────────────── soft delete / visibility ─────────────────────────
 
-    @Disabled("BUG S-44 (low): a soft-deleted (INACTIVE) product is still served by GET /products/{id} and /products/sku/{sku}, though listing, search and category views hide it")
     @Test
     void softDeletedProduct_isInvisibleToPublicReads() {
         long id = createProduct("DEL-1", "Withdrawn", "10.00", 5);
@@ -253,7 +250,7 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
     @ParameterizedTest(name = "price {0} cannot reach the database")
     @ValueSource(strings = {"-10", "0", "0.001", "-0.01"})
     void invalidPrices_areRejected_andNothingIsStored(String price) {
-        client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body("{\"sku\":\"P-1\",\"name\":\"n\",\"price\":" + price + ",\"stockQuantity\":1}").exchange()
                 .expectStatus().isBadRequest();
         assertThat(countProducts()).isZero();
@@ -263,25 +260,23 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
     void updatePrice_toNegativeOrZero_isRejected_andPriceUnchanged() {
         long id = createProduct("P-2", "Priced", "10.00", 1);
         for (String bad : List.of("-5", "0", "-0.01")) {
-            client.put().uri("/api/v1/products/{id}", id).contentType(MediaType.APPLICATION_JSON)
+            client.put().uri("/api/v1/products/{id}", id).header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                     .body("{\"price\":" + bad + "}").exchange().expectStatus().isBadRequest();
         }
         assertThat(jdbc.queryForObject("SELECT price FROM products WHERE id = ?", BigDecimal.class, id)).isEqualByComparingTo("10.00");
     }
 
-    @Disabled("BUG S-48: a price that exceeds NUMERIC(19,4) (e.g. 99999999999999999999.99) passes validation and PostgreSQL rejects it, answering 500 instead of 400")
     @Test
     void priceBeyondColumnCapacity_is400() {
-        client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body("{\"sku\":\"P-BIG\",\"name\":\"n\",\"price\":99999999999999999999.99,\"stockQuantity\":1}").exchange()
                 .expectStatus().isBadRequest();
         assertThat(countProducts()).isZero();
     }
 
-    @Disabled("BUG S-48 (low): prices with more than 4 decimals are silently rounded by PostgreSQL (1.23456 -> 1.2346) instead of being rejected")
     @Test
     void priceWithExcessPrecision_isRejected_notSilentlyRounded() {
-        client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body("{\"sku\":\"P-PREC\",\"name\":\"n\",\"price\":1.23456,\"stockQuantity\":1}").exchange()
                 .expectStatus().isBadRequest();
         assertThat(countProducts()).isZero();
@@ -291,12 +286,12 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
 
     @Test
     void oversizedFields_areRejected_with400_notDatabaseErrors() {
-        client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(productBody("LONG-1", "n".repeat(201), "5.00", 1)).exchange().expectStatus().isBadRequest();
         Map<String, Object> longBrand = productBody("LONG-2", "n", "5.00", 1);
         longBrand.put("brand", "b".repeat(101));
-        client.post().uri("/api/v1/products").contentType(MediaType.APPLICATION_JSON).body(longBrand).exchange().expectStatus().isBadRequest();
-        client.post().uri("/api/v1/categories").contentType(MediaType.APPLICATION_JSON)
+        client.post().uri("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).body(longBrand).exchange().expectStatus().isBadRequest();
+        client.post().uri("/api/v1/categories").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("name", "c".repeat(101))).exchange().expectStatus().isBadRequest();
         assertThat(countProducts()).isZero();
     }
@@ -308,7 +303,6 @@ class ProductDataIntegritySecurityIT extends ProductSecurityITSupport {
                 .expectStatus().isOk().expectHeader().valueEquals("X-Correlation-Id", "abc-123");
     }
 
-    @Disabled("BUG S-49: X-Correlation-Id is taken from the client unvalidated (any length/characters) and written to MDC/logs and the response header")
     @Test
     void correlationId_withMarkupOrExcessiveLength_isReplaced() {
         String hostile = "x <script>alert(1)</script> 2026-10-29 ERROR forged log line";

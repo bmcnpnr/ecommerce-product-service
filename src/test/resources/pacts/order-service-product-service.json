@@ -117,7 +117,7 @@
           ]
         },
         "method": "PATCH",
-        "path": "/api/v1/products/1/stock"
+        "path": "/internal/v1/products/1/stock"
       },
       "response": {
         "body": {
@@ -196,7 +196,7 @@
           ]
         },
         "method": "PATCH",
-        "path": "/api/v1/products/1/stock"
+        "path": "/internal/v1/products/1/stock"
       },
       "response": {
         "body": {
@@ -266,7 +266,7 @@
           ]
         },
         "method": "PATCH",
-        "path": "/api/v1/products/1/stock"
+        "path": "/internal/v1/products/1/stock"
       },
       "response": {
         "body": {

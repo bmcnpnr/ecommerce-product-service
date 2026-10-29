@@ -2,6 +2,7 @@ package com.ecommerce.product.controller;
 
 import com.ecommerce.product.dto.*;
 import com.ecommerce.product.service.ProductService;
+import com.ecommerce.product.security.AdminOnly;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -21,6 +22,7 @@ public class CategoryController {
     private final ProductService productService;
 
     @PostMapping
+    @AdminOnly
     @Operation(summary = "Create a category (ADMIN)")
     public ResponseEntity<CategoryDTO> createCategory(@Valid @RequestBody CreateCategoryRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createCategory(request));

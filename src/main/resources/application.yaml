@@ -9,6 +9,15 @@ spring:
     username: ${DB_USERNAME:productuser}
     password: ${DB_PASSWORD:productpass}
     driver-class-name: org.postgresql.Driver
+  jackson:
+    deserialization:
+      # 1.5 for an integer field is a 400, not a silent 1 (S-42)
+      accept-float-as-int: false
+  data:
+    web:
+      pageable:
+        # the controllers answer 400 above 100; Spring's own clamp would hide it
+        max-page-size: 2147483647
   jpa:
     hibernate:
       ddl-auto: validate
@@ -46,7 +55,7 @@ management:
         include: health,info,metrics,prometheus,circuitbreakers,serviceregistry
   endpoint:
     health:
-      show-details: always
+      show-details: never
     prometheus:
       access: unrestricted
   metrics:

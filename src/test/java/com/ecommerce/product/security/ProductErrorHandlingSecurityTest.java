@@ -67,7 +67,7 @@ class ProductErrorHandlingSecurityTest {
 
     @Test
     void malformedJson_is400_withoutParserInternals() throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        MvcResult result = mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"sku\": \"A\", \"name\": ")).andExpect(status().isBadRequest()).andReturn();
 
         assertNoInternals(result.getResponse().getContentAsString());
@@ -75,9 +75,8 @@ class ProductErrorHandlingSecurityTest {
     }
 
     @Test
-    @Disabled("BUG S-41: 400 bodies echo Java type names (java.lang.Long / java.math.BigDecimal) and parser text from ex.getMessage()")
     void wrongFieldType_is400_withoutClassNames() throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        MvcResult result = mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"sku\":\"A\",\"name\":\"n\",\"price\":\"not-a-number\",\"stockQuantity\":1}"))
                 .andExpect(status().isBadRequest()).andReturn();
 
@@ -86,7 +85,6 @@ class ProductErrorHandlingSecurityTest {
     }
 
     @Test
-    @Disabled("BUG S-41: 400 bodies echo Java type names (java.lang.Long / java.math.BigDecimal) and parser text from ex.getMessage()")
     void nonNumericPathVariable_is400_withoutClassNames() throws Exception {
         MvcResult result = mockMvc.perform(get("/api/v1/products/abc")).andExpect(status().isBadRequest()).andReturn();
 
@@ -108,17 +106,15 @@ class ProductErrorHandlingSecurityTest {
     }
 
     @Test
-    @Disabled("BUG S-40: HttpMediaTypeNotSupported / NoResourceFound are not handled, so the catch-all turns this client error into a 500")
     void wrongContentType_isClientError415_not500() throws Exception {
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.TEXT_PLAIN).content("sku=A&name=n"))
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.TEXT_PLAIN).content("sku=A&name=n"))
                 .andExpect(status().isUnsupportedMediaType());
         verifyNoInteractions(productService);
     }
 
     @Test
-    @Disabled("BUG S-40: HttpMediaTypeNotSupported / NoResourceFound are not handled, so the catch-all turns this client error into a 500")
     void xmlBody_isRejectedAs415_not500() throws Exception {
-        mockMvc.perform(post("/api/v1/categories").contentType(MediaType.APPLICATION_XML)
+        mockMvc.perform(post("/api/v1/categories").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_XML)
                         .content("<!DOCTYPE x [<!ENTITY e SYSTEM \"file:///etc/passwd\">]><c><name>&e;</name></c>"))
                 .andExpect(status().isUnsupportedMediaType());
         verifyNoInteractions(productService);
@@ -126,13 +122,12 @@ class ProductErrorHandlingSecurityTest {
 
     @Test
     void unsupportedMethod_is405() throws Exception {
-        mockMvc.perform(put("/api/v1/categories/1").contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mockMvc.perform(put("/api/v1/categories/1").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isMethodNotAllowed());
-        mockMvc.perform(delete("/api/v1/categories/1")).andExpect(status().isMethodNotAllowed());
+        mockMvc.perform(delete("/api/v1/categories/1").header("X-User-Role", "ADMIN")).andExpect(status().isMethodNotAllowed());
     }
 
     @Test
-    @Disabled("BUG S-40: HttpMediaTypeNotSupported / NoResourceFound are not handled, so the catch-all turns this client error into a 500")
     void unknownPath_is404_not500() throws Exception {
         mockMvc.perform(get("/api/v1/nope")).andExpect(status().isNotFound());
     }
@@ -140,7 +135,7 @@ class ProductErrorHandlingSecurityTest {
     @ParameterizedTest(name = "price {0} is rejected with 400")
     @ValueSource(strings = {"-1", "-0.01", "0", "0.00", "0.001", "-999999999999"})
     void createProduct_invalidPrice_is400(String price) throws Exception {
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"sku\":\"A\",\"name\":\"n\",\"price\":" + price + ",\"stockQuantity\":1}"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(productService);
@@ -149,7 +144,7 @@ class ProductErrorHandlingSecurityTest {
     @ParameterizedTest(name = "price literal {0} is rejected with 400")
     @ValueSource(strings = {"\"NaN\"", "\"Infinity\"", "\"-Infinity\"", "null", "\"\"", "[1]", "{}"})
     void createProduct_nonNumericOrMissingPrice_is400(String priceLiteral) throws Exception {
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"sku\":\"A\",\"name\":\"n\",\"price\":" + priceLiteral + ",\"stockQuantity\":1}"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(productService);
@@ -158,7 +153,7 @@ class ProductErrorHandlingSecurityTest {
     @ParameterizedTest(name = "update price {0} is rejected with 400")
     @ValueSource(strings = {"-5", "0", "0.001"})
     void updateProduct_invalidPrice_is400(String price) throws Exception {
-        mockMvc.perform(put("/api/v1/products/1").contentType(MediaType.APPLICATION_JSON).content("{\"price\":" + price + "}"))
+        mockMvc.perform(put("/api/v1/products/1").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).content("{\"price\":" + price + "}"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(productService);
     }
@@ -166,7 +161,7 @@ class ProductErrorHandlingSecurityTest {
     @ParameterizedTest(name = "stockQuantity {0} is rejected with 400")
     @ValueSource(strings = {"-1", "-2147483648", "2147483648", "99999999999999999999", "\"ten\""})
     void createProduct_invalidStock_is400(String stock) throws Exception {
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"sku\":\"A\",\"name\":\"n\",\"price\":1.00,\"stockQuantity\":" + stock + "}"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(productService);
@@ -175,16 +170,15 @@ class ProductErrorHandlingSecurityTest {
     @ParameterizedTest(name = "stock delta {0} is rejected with 400")
     @ValueSource(strings = {"null", "2147483648", "-2147483649", "\"abc\""})
     void stockDelta_invalid_is400(String delta) throws Exception {
-        mockMvc.perform(patch("/api/v1/products/1/stock").contentType(MediaType.APPLICATION_JSON).content("{\"delta\":" + delta + "}"))
+        mockMvc.perform(patch("/api/v1/products/1/stock").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).content("{\"delta\":" + delta + "}"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(productService);
     }
 
     @ParameterizedTest(name = "fractional stock delta {0} is rejected, not silently truncated")
     @ValueSource(strings = {"1.5", "-1.9", "0.999"})
-    @Disabled("BUG S-42 (low): Jackson coerces fractional numbers to int, so delta 1.5 is accepted and applied as 1")
     void stockDelta_fractional_is400(String delta) throws Exception {
-        mockMvc.perform(patch("/api/v1/products/1/stock").contentType(MediaType.APPLICATION_JSON).content("{\"delta\":" + delta + "}"))
+        mockMvc.perform(patch("/api/v1/products/1/stock").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).content("{\"delta\":" + delta + "}"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(productService);
     }
@@ -192,11 +186,11 @@ class ProductErrorHandlingSecurityTest {
     @Test
     void overlongFields_areRejectedAtTheEdge() throws Exception {
         String longName = "x".repeat(201);
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"sku\":\"A\",\"name\":\"" + longName + "\",\"price\":1.00,\"stockQuantity\":1}"))
                 .andExpect(status().isBadRequest());
         String longSku = "s".repeat(101);
-        mockMvc.perform(post("/api/v1/products").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"sku\":\"" + longSku + "\",\"name\":\"n\",\"price\":1.00,\"stockQuantity\":1}"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(productService);
@@ -205,7 +199,7 @@ class ProductErrorHandlingSecurityTest {
     @Test
     void invalidStatusValue_is400_withoutInternals() throws Exception {
         when(productService.updateProduct(anyLong(), any())).thenThrow(new InvalidRequestException("Unknown product status: X"));
-        MvcResult r = mockMvc.perform(put("/api/v1/products/1").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"X\"}"))
+        MvcResult r = mockMvc.perform(put("/api/v1/products/1").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"X\"}"))
                 .andExpect(status().isBadRequest()).andReturn();
         assertNoInternals(r.getResponse().getContentAsString());
     }
