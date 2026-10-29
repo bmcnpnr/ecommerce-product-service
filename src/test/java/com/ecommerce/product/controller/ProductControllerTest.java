@@ -81,6 +81,109 @@ class ProductControllerTest {
     }
 
     @Test
+    void getAllProducts_defaultsToPageSize20() throws Exception {
+        when(productService.getAllProducts(any())).thenReturn(new PageImpl<>(List.of(
+                ProductDTO.builder().id(1L).sku("A").status("ACTIVE").build())));
+
+        mockMvc.perform(get("/api/v1/products"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].sku").value("A"));
+
+        verify(productService).getAllProducts(argThat((Pageable p) -> p.getPageSize() == 20 && p.getPageNumber() == 0));
+    }
+
+    @Test
+    void getAllProducts_honoursPageSizeAndSortParams() throws Exception {
+        when(productService.getAllProducts(any())).thenReturn(new PageImpl<>(List.of()));
+
+        mockMvc.perform(get("/api/v1/products?page=3&size=5&sort=price,desc"))
+                .andExpect(status().isOk());
+
+        verify(productService).getAllProducts(argThat((Pageable p) -> p.getPageNumber() == 3 && p.getPageSize() == 5
+                && p.getSort().getOrderFor("price") != null && p.getSort().getOrderFor("price").isDescending()));
+    }
+
+    @Test
+    void getProductBySku_returns200() throws Exception {
+        when(productService.getProductBySku("SKU-9")).thenReturn(ProductDTO.builder().id(9L).sku("SKU-9").build());
+
+        mockMvc.perform(get("/api/v1/products/sku/SKU-9"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(9));
+    }
+
+    @Test
+    void searchProducts_passesQueryAndPageable() throws Exception {
+        when(productService.searchProducts(eq("mouse"), any())).thenReturn(new PageImpl<>(List.of(
+                ProductDTO.builder().id(1L).name("Wireless Mouse").build())));
+
+        mockMvc.perform(get("/api/v1/products/search").param("q", "mouse").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].name").value("Wireless Mouse"));
+
+        verify(productService).searchProducts(eq("mouse"), argThat((Pageable p) -> p.getPageSize() == 1));
+    }
+
+    @Test
+    void getProductsByCategory_returnsList() throws Exception {
+        when(productService.getProductsByCategory(10L)).thenReturn(List.of(
+                ProductDTO.builder().id(1L).categoryId(10L).build(),
+                ProductDTO.builder().id(2L).categoryId(10L).build()));
+
+        mockMvc.perform(get("/api/v1/products/category/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void updateProduct_returns200() throws Exception {
+        UpdateProductRequest request = UpdateProductRequest.builder().name("Renamed").price(new BigDecimal("5.00")).build();
+        when(productService.updateProduct(eq(1L), any())).thenReturn(
+                ProductDTO.builder().id(1L).name("Renamed").price(new BigDecimal("5.00")).build());
+
+        mockMvc.perform(put("/api/v1/products/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Renamed"));
+    }
+
+    @Test
+    void updateProduct_notFound_returns404() throws Exception {
+        when(productService.updateProduct(eq(9L), any())).thenThrow(new ProductNotFoundException("Product not found with id: 9"));
+
+        mockMvc.perform(put("/api/v1/products/9").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"x\"}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void updateStock_returns200() throws Exception {
+        when(productService.updateStock(1L, 5)).thenReturn(ProductDTO.builder().id(1L).stockQuantity(15).status("ACTIVE").build());
+
+        mockMvc.perform(patch("/api/v1/products/1/stock")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new StockUpdateRequest(5))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stockQuantity").value(15));
+    }
+
+    @Test
+    void deleteProduct_returns204() throws Exception {
+        mockMvc.perform(delete("/api/v1/products/1"))
+                .andExpect(status().isNoContent());
+
+        verify(productService).deleteProduct(1L);
+    }
+
+    @Test
+    void deleteProduct_notFound_returns404() throws Exception {
+        doThrow(new ProductNotFoundException("nope")).when(productService).deleteProduct(9L);
+
+        mockMvc.perform(delete("/api/v1/products/9"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void createProduct_invalidInput_returns400() throws Exception {
         CreateProductRequest request = CreateProductRequest.builder()
                 .sku("").name("").price(new BigDecimal("-1")).stockQuantity(-5).build();

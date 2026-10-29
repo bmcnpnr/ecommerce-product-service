@@ -106,6 +106,31 @@
             <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Repository slice tests (@DataJpaTest), used by the *IT classes. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Integration tests (*IT, run by failsafe) start the real Flyway
+             migrations against postgres:16-alpine via Testcontainers. Versions
+             come from the Boot-managed testcontainers-bom; the 2.x artifact ids
+             carry the testcontainers- prefix. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- Contract tests (Pact, see src/test/java/com/ecommerce/product/contract).
              provider/junit5 replays the pacts order-service, catalog-service and
              review-service hold against this service's REST API
@@ -156,6 +181,25 @@
                         <pact_do_not_track>true</pact_do_not_track>
                     </systemPropertyVariables>
                 </configuration>
+            </plugin>
+            <!-- *IT classes (src/test/java/com/ecommerce/product/integration):
+                 Postgres + Flyway via Testcontainers, so they need Docker. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <pact_do_not_track>true</pact_do_not_track>
+                    </systemPropertyVariables>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

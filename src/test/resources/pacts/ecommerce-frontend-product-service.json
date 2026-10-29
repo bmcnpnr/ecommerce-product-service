@@ -1,0 +1,1180 @@
+{
+  "consumer": {
+    "name": "ecommerce-frontend"
+  },
+  "interactions": [
+    {
+      "description": "a product search for \"mouse\"",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/products/search",
+        "query": {
+          "page": [
+            "0"
+          ],
+          "q": [
+            "mouse"
+          ],
+          "size": [
+            "20"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "content": {
+            "content": [
+              {
+                "createdAt": "2026-10-29T11:00:00.123456",
+                "id": 1,
+                "name": "Wireless Mouse",
+                "price": 49.99,
+                "sku": "SKU-001",
+                "status": "ACTIVE",
+                "stockQuantity": 50
+              }
+            ],
+            "number": 0,
+            "totalElements": 1,
+            "totalPages": 1
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.content": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.content[*].createdAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,9})?)?$"
+                }
+              ]
+            },
+            "$.content[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.content[*].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.content[*].price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.content[*].sku": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.content[*].status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(ACTIVE|INACTIVE|OUT_OF_STOCK)$"
+                }
+              ]
+            },
+            "$.content[*].stockQuantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.number": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.totalElements": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.totalPages": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request for all categories",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "categories exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/categories"
+      },
+      "response": {
+        "body": {
+          "content": [
+            {
+              "createdAt": "2026-10-29T11:00:00.123456",
+              "id": 10,
+              "name": "Electronics"
+            }
+          ],
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$[*].createdAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,9})?)?$"
+                }
+              ]
+            },
+            "$[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$[*].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request for product 1",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/products/1"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "brand": "Logi",
+            "categoryId": 10,
+            "createdAt": "2026-10-29T11:00:00.123456",
+            "description": "Ergonomic wireless mouse",
+            "id": 1,
+            "name": "Wireless Mouse",
+            "price": 49.99,
+            "sku": "SKU-001",
+            "status": "ACTIVE",
+            "stockQuantity": 50
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.brand": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.categoryId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.createdAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,9})?)?$"
+                }
+              ]
+            },
+            "$.description": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.sku": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(ACTIVE|INACTIVE|OUT_OF_STOCK)$"
+                }
+              ]
+            },
+            "$.stockQuantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request for product 999",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 999 does not exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/products/999"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "message": "Product not found with id: 999"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.message": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 404
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request for the first page of products",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/products",
+        "query": {
+          "page": [
+            "0"
+          ],
+          "size": [
+            "20"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "content": {
+            "content": [
+              {
+                "createdAt": "2026-10-29T11:00:00.123456",
+                "id": 1,
+                "name": "Wireless Mouse",
+                "price": 49.99,
+                "sku": "SKU-001",
+                "status": "ACTIVE",
+                "stockQuantity": 50
+              }
+            ],
+            "number": 0,
+            "totalElements": 1,
+            "totalPages": 1
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.content": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.content[*].createdAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,9})?)?$"
+                }
+              ]
+            },
+            "$.content[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.content[*].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.content[*].price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.content[*].sku": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.content[*].status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(ACTIVE|INACTIVE|OUT_OF_STOCK)$"
+                }
+              ]
+            },
+            "$.content[*].stockQuantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.number": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.totalElements": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.totalPages": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request for the products in category 10",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/products/category/10"
+      },
+      "response": {
+        "body": {
+          "content": [
+            {
+              "createdAt": "2026-10-29T11:00:00.123456",
+              "id": 1,
+              "name": "Wireless Mouse",
+              "price": 49.99,
+              "sku": "SKU-001",
+              "status": "ACTIVE",
+              "stockQuantity": 50
+            }
+          ],
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$[*].createdAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,9})?)?$"
+                }
+              ]
+            },
+            "$[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$[*].name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[*].price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$[*].sku": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$[*].status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(ACTIVE|INACTIVE|OUT_OF_STOCK)$"
+                }
+              ]
+            },
+            "$[*].stockQuantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "an admin request to add 5 to the stock of product 1",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "delta": 5
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJJZCI6MSwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzk4NzYxNjAwLCJleHAiOjQxMDI0NDQ4MDB9.irMIjHk52RlzLgA-bG31KMTVo3clbkkO3m0hgpXdnmc"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "PATCH",
+        "path": "/api/v1/products/1/stock"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "createdAt": "2026-10-29T11:00:00.123456",
+            "id": 1,
+            "name": "Wireless Mouse",
+            "price": 49.99,
+            "sku": "SKU-001",
+            "status": "ACTIVE",
+            "stockQuantity": 55
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.createdAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,9})?)?$"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.sku": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(ACTIVE|INACTIVE|OUT_OF_STOCK)$"
+                }
+              ]
+            },
+            "$.stockQuantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "an admin request to create category Gadgets under category 10",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "categories exist"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "description": "Small gadgets",
+            "name": "Gadgets",
+            "parentCategoryId": 10
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJJZCI6MSwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzk4NzYxNjAwLCJleHAiOjQxMDI0NDQ4MDB9.irMIjHk52RlzLgA-bG31KMTVo3clbkkO3m0hgpXdnmc"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/v1/categories"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "createdAt": "2026-10-29T11:00:00.123456",
+            "id": 12,
+            "name": "Gadgets",
+            "parentCategoryId": 10
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.createdAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,9})?)?$"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.parentCategoryId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "an admin request to create product SKU-NEW-1",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "categories exist"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "brand": "Anker",
+            "categoryId": 10,
+            "description": "Braided, 2 m",
+            "name": "USB-C Cable",
+            "price": 9.99,
+            "sku": "SKU-NEW-1",
+            "stockQuantity": 100
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJJZCI6MSwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzk4NzYxNjAwLCJleHAiOjQxMDI0NDQ4MDB9.irMIjHk52RlzLgA-bG31KMTVo3clbkkO3m0hgpXdnmc"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/v1/products"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "createdAt": "2026-10-29T11:00:00.123456",
+            "id": 2,
+            "name": "USB-C Cable",
+            "price": 49.99,
+            "sku": "SKU-NEW-1",
+            "status": "ACTIVE",
+            "stockQuantity": 50
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.createdAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,9})?)?$"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.sku": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(ACTIVE|INACTIVE|OUT_OF_STOCK)$"
+                }
+              ]
+            },
+            "$.stockQuantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "an admin request to delete product 1",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "headers": {
+          "Authorization": [
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJJZCI6MSwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzk4NzYxNjAwLCJleHAiOjQxMDI0NDQ4MDB9.irMIjHk52RlzLgA-bG31KMTVo3clbkkO3m0hgpXdnmc"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "DELETE",
+        "path": "/api/v1/products/1"
+      },
+      "response": {
+        "status": 204
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "an admin request to update product 1",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "product 1 exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "brand": "Logi",
+            "categoryId": 10,
+            "description": "Ergonomic wireless mouse",
+            "name": "Wireless Mouse Pro",
+            "price": 59.99,
+            "sku": "SKU-001",
+            "stockQuantity": 50
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Authorization": [
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsInVzZXJJZCI6MSwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzk4NzYxNjAwLCJleHAiOjQxMDI0NDQ4MDB9.irMIjHk52RlzLgA-bG31KMTVo3clbkkO3m0hgpXdnmc"
+          ],
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Authorization": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^Bearer [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "PUT",
+        "path": "/api/v1/products/1"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "createdAt": "2026-10-29T11:00:00.123456",
+            "id": 1,
+            "name": "Wireless Mouse Pro",
+            "price": 59.99,
+            "sku": "SKU-001",
+            "status": "ACTIVE",
+            "stockQuantity": 50
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.createdAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,9})?)?$"
+                }
+              ]
+            },
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            },
+            "$.name": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.price": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "number"
+                }
+              ]
+            },
+            "$.sku": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(ACTIVE|INACTIVE|OUT_OF_STOCK)$"
+                }
+              ]
+            },
+            "$.stockQuantity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "integer"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pact-js": {
+      "version": "17.1.4"
+    },
+    "pactRust": {
+      "ffi": "0.5.8",
+      "models": "1.3.16"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "product-service"
+  }
+}

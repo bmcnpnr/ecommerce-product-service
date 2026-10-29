@@ -94,9 +94,17 @@ public class ProductService {
         if (request.getDescription() != null) product.setDescription(request.getDescription());
         if (request.getPrice() != null) product.setPrice(request.getPrice());
         if (request.getBrand() != null) product.setBrand(request.getBrand());
-        if (request.getCategoryId() != null) product.setCategoryId(request.getCategoryId());
+        if (request.getCategoryId() != null) {
+            categoryRepository.findById(request.getCategoryId())
+                    .orElseThrow(() -> new CategoryNotFoundException("Category not found: " + request.getCategoryId()));
+            product.setCategoryId(request.getCategoryId());
+        }
         if (request.getStatus() != null) {
-            product.setStatus(ProductStatus.valueOf(request.getStatus()));
+            try {
+                product.setStatus(ProductStatus.valueOf(request.getStatus()));
+            } catch (IllegalArgumentException e) {
+                throw new InvalidRequestException("Unknown product status: " + request.getStatus());
+            }
         }
         product.setUpdatedAt(LocalDateTime.now());
         return toDTO(productRepository.save(product));
@@ -104,6 +112,7 @@ public class ProductService {
 
     @Transactional
     public ProductDTO updateStock(Long id, Integer delta) {
+        productRepository.lockById(id);
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException("Product not found with id: " + id));
 
@@ -113,9 +122,9 @@ public class ProductService {
                     "Insufficient stock for product " + product.getSku() + ". Available: " + product.getStockQuantity() + ", Requested: " + (-delta));
         }
         product.setStockQuantity(newQuantity);
-        if (newQuantity == 0) {
+        if (newQuantity == 0 && product.getStatus() == ProductStatus.ACTIVE) {
             product.setStatus(ProductStatus.OUT_OF_STOCK);
-        } else if (product.getStatus() == ProductStatus.OUT_OF_STOCK) {
+        } else if (newQuantity > 0 && product.getStatus() == ProductStatus.OUT_OF_STOCK) {
             product.setStatus(ProductStatus.ACTIVE);
         }
         product.setUpdatedAt(LocalDateTime.now());
@@ -137,6 +146,10 @@ public class ProductService {
     public CategoryDTO createCategory(CreateCategoryRequest request) {
         if (categoryRepository.existsByName(request.getName())) {
             throw new ProductAlreadyExistsException("Category already exists: " + request.getName());
+        }
+        if (request.getParentCategoryId() != null) {
+            categoryRepository.findById(request.getParentCategoryId())
+                    .orElseThrow(() -> new CategoryNotFoundException("Category not found: " + request.getParentCategoryId()));
         }
         Category category = Category.builder()
                 .name(request.getName())
