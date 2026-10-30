@@ -107,7 +107,7 @@ class ProductAuthorizationSecurityTest {
         when(productService.searchProducts(any(), any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
         when(productService.getProductById(anyLong())).thenReturn(ProductDTO.builder().id(1L).status("ACTIVE").build());
         when(productService.getProductBySku(any())).thenReturn(ProductDTO.builder().id(1L).status("ACTIVE").build());
-        when(productService.getProductsByCategory(anyLong())).thenReturn(List.of());
+        when(productService.getProductsByCategory(anyLong(), any(Pageable.class))).thenReturn(List.of());
         when(productService.getAllCategories()).thenReturn(List.of());
         when(productService.getCategoryById(anyLong())).thenReturn(CategoryDTO.builder().id(1L).name("c").build());
 

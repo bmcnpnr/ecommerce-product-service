@@ -19,6 +19,8 @@ public class CreateProductRequest {
     @NoNul
     private String name;
 
+    // TEXT column, but every list response carries it: unbounded, one row would make a whole page huge.
+    @Size(max = 5000)
     @NoNul
     private String description;
 

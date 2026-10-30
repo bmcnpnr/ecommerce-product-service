@@ -1,5 +1,6 @@
 package com.ecommerce.product.exception;
 
+import com.ecommerce.product.logging.LogThrottle;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,12 +13,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    // Both lines can repeat at request rate (a bug on a hot path, a dead database under load), so each
+    // distinct failure logs once per window and the rest is only counted (L3, L4).
+    private static final LogThrottle ERROR_LOG = new LogThrottle(10, TimeUnit.SECONDS);
+    private static final LogThrottle UNAVAILABLE_LOG = new LogThrottle(10, TimeUnit.SECONDS);
 
     @ExceptionHandler(ProductNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleProductNotFound(ProductNotFoundException ex, HttpServletRequest request) {
@@ -161,9 +168,52 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception ex, HttpServletRequest request) {
-        log.error("Unhandled exception on {} {} (correlationId={})", request.getMethod(), request.getRequestURI(), MDC.get("correlationId"), ex);
+        Throwable unavailable = DependencyFailures.unavailableCause(ex);
+        if (unavailable != null) {
+            return handleUnavailable(unavailable, request);
+        }
+        long suppressed = ERROR_LOG.acquire(LogThrottle.keyOf(ex));
+        if (suppressed >= 0) {
+            log.error("Unhandled exception on {} {} (correlationId={}){}", request.getMethod(), request.getRequestURI(),
+                    MDC.get("correlationId"), LogThrottle.suppressedSuffix(suppressed), ex);
+        }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred", request.getRequestURI()));
+    }
+
+    /**
+     * The database did not answer (no connection, pool exhausted, lock or query timeout, deadlock): an operating
+     * condition, not a bug. 503 with a fixed message and one throttled line without a stack trace (L4).
+     */
+    private ResponseEntity<ErrorResponse> handleUnavailable(Throwable cause, HttpServletRequest request) {
+        long suppressed = UNAVAILABLE_LOG.acquire(cause.getClass().getName());
+        if (suppressed >= 0) {
+            log.warn("Dependency unavailable on {} {} (correlationId={}): {}{}", request.getMethod(), request.getRequestURI(),
+                    MDC.get("correlationId"), describe(cause), LogThrottle.suppressedSuffix(suppressed));
+        }
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(buildError(HttpStatus.SERVICE_UNAVAILABLE, "Service Unavailable", "Service temporarily unavailable", request.getRequestURI()));
+    }
+
+    /**
+     * The failure and, when it differs, the deepest cause behind it ("Could not open JPA EntityManager for
+     * transaction" says little; "Connection is not available, request timed out after 5000ms" says what happened).
+     * Hibernate's own two lines per failed JDBC call are switched off, so this line has to carry the reason.
+     */
+    private static String describe(Throwable cause) {
+        Throwable root = cause;
+        for (int depth = 0; root.getCause() != null && root.getCause() != root && depth < 16; depth++) {
+            root = root.getCause();
+        }
+        return root == cause ? brief(cause) : brief(cause) + "; root cause: " + brief(root);
+    }
+
+    /** Class and first line of the message, without control characters and capped, so nothing can forge a log line. */
+    private static String brief(Throwable t) {
+        String message = t.getMessage() == null ? "" : t.getMessage();
+        int eol = message.indexOf('\n');
+        String firstLine = (eol < 0 ? message : message.substring(0, eol)).replaceAll("\\p{Cntrl}", "_");
+        return t.getClass().getName() + (firstLine.isEmpty() ? "" : ": " + firstLine.substring(0, Math.min(300, firstLine.length())));
     }
 
     private ErrorResponse buildError(HttpStatus status, String error, String message, String path) {

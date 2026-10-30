@@ -126,13 +126,73 @@ class ProductControllerTest {
 
     @Test
     void getProductsByCategory_returnsList() throws Exception {
-        when(productService.getProductsByCategory(10L)).thenReturn(List.of(
+        when(productService.getProductsByCategory(eq(10L), any(Pageable.class))).thenReturn(List.of(
                 ProductDTO.builder().id(1L).categoryId(10L).build(),
                 ProductDTO.builder().id(2L).categoryId(10L).build()));
 
         mockMvc.perform(get("/api/v1/products/category/10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void theLists_areSortedById_unlessTheClientAsksForAnotherOrder_soPagesAreStable() throws Exception {
+        when(productService.getAllProducts(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+        when(productService.searchProducts(eq("mouse"), any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+
+        mockMvc.perform(get("/api/v1/products")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/products/search").param("q", "mouse")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/products").param("sort", "price,desc")).andExpect(status().isOk());
+
+        verify(productService, times(2)).getAllProducts(argThat((Pageable p) ->
+                p.getPageSize() == 20 && (p.getSort().equals(org.springframework.data.domain.Sort.by("id"))
+                        || p.getSort().equals(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "price")))));
+        verify(productService).searchProducts(eq("mouse"), argThat((Pageable p) -> p.getSort().equals(org.springframework.data.domain.Sort.by("id"))));
+    }
+
+    @Test
+    void getProductsByCategory_isOnePageOfAtMost100_sortedById_byDefault() throws Exception {
+        when(productService.getProductsByCategory(eq(10L), any(Pageable.class))).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/products/category/10")).andExpect(status().isOk());
+
+        verify(productService).getProductsByCategory(eq(10L), argThat((Pageable p) ->
+                p.getPageNumber() == 0 && p.getPageSize() == 100 && p.getSort().equals(org.springframework.data.domain.Sort.by("id"))));
+    }
+
+    @Test
+    void getProductsByCategory_pageAndSizeAreHonoured_anOversizedPageIsA400() throws Exception {
+        when(productService.getProductsByCategory(eq(10L), any(Pageable.class))).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/products/category/10").param("page", "2").param("size", "50")).andExpect(status().isOk());
+        verify(productService).getProductsByCategory(eq(10L), argThat((Pageable p) -> p.getPageNumber() == 2 && p.getPageSize() == 50));
+
+        mockMvc.perform(get("/api/v1/products/category/10").param("size", "101")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/products/category/10").param("size", "2147483647")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/v1/products/category/10").param("sort", "password")).andExpect(status().isBadRequest());
+        verifyNoMoreInteractions(productService);
+    }
+
+    @Test
+    void search_textLongerThanAnyProductName_isA400_andNeverReachesTheDatabase() throws Exception {
+        mockMvc.perform(get("/api/v1/products/search").param("q", "a".repeat(201)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid value for parameter 'q'"));
+        verifyNoInteractions(productService);
+
+        when(productService.searchProducts(eq("a".repeat(200)), any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+        mockMvc.perform(get("/api/v1/products/search").param("q", "a".repeat(200))).andExpect(status().isOk());
+    }
+
+    @Test
+    void aRequestBodyOver1MB_isRefusedBeforeAnythingParsesIt() throws Exception {
+        byte[] huge = ("{\"sku\":\"A\",\"name\":\"" + "x".repeat(2 * 1024 * 1024) + "\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON).content(huge))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.message").value("Request body too large"));
+
+        verifyNoInteractions(productService);
     }
 
     @Test

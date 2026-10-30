@@ -2,13 +2,36 @@ package com.ecommerce.product.exception;
 
 import com.ecommerce.product.controller.ProductController;
 import com.ecommerce.product.service.ProductService;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.CannotGetJdbcConnectionException;
+import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.CannotCreateTransactionException;
 
+import java.sql.SQLException;
+import java.sql.SQLTransientConnectionException;
+import java.util.List;
+import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
@@ -51,7 +74,7 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void categoryNotFound_is404() throws Exception {
-        when(productService.getProductsByCategory(5L)).thenThrow(new CategoryNotFoundException("Category not found: 5"));
+        when(productService.getProductsByCategory(eq(5L), any(Pageable.class))).thenThrow(new CategoryNotFoundException("Category not found: 5"));
 
         mockMvc.perform(get("/api/v1/products/category/5"))
                 .andExpect(status().isNotFound())
@@ -164,5 +187,109 @@ class GlobalExceptionHandlerTest {
                 .andExpect(result -> org.assertj.core.api.Assertions.assertThat(
                                 result.getResponse().getContentAsString())
                         .contains(result.getResponse().getHeader("X-Correlation-Id")));
+    }
+
+    // ───────────────────────── dependency failures (L4) and log volume (L3) ─────────────────────────
+
+    private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
+    private Logger handlerLogger;
+
+    @BeforeEach
+    void captureHandlerLog() {
+        handlerLogger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+        logs.start();
+        handlerLogger.addAppender(logs);
+    }
+
+    @AfterEach
+    void releaseHandlerLog() {
+        handlerLogger.detachAppender(logs);
+        logs.stop();
+    }
+
+    static Stream<Throwable> databaseFailures() {
+        return Stream.of(
+                new CannotGetJdbcConnectionException("Failed to obtain JDBC Connection",
+                        new SQLTransientConnectionException("HikariPool-1 - Connection is not available, request timed out after 5000ms")),
+                new CannotCreateTransactionException("Could not open JPA EntityManager for transaction"),
+                new DataAccessResourceFailureException("connection refused: postgres:5432"),
+                new QueryTimeoutException("canceling statement due to statement timeout"),
+                new CannotAcquireLockException("canceling statement due to lock timeout while locking tuple in relation products"),
+                new JpaSystemException(new RuntimeException("wrapped", new SQLTransientConnectionException("pool"))),
+                // a killed backend / database restart: the failed rollback overrides the original exception
+                new org.springframework.transaction.TransactionSystemException("Could not roll back JPA transaction",
+                        new org.hibernate.TransactionException("Unable to rollback against JDBC Connection",
+                                new SQLException("This connection has been closed.", (String) null))));
+    }
+
+    @ParameterizedTest
+    @MethodSource("databaseFailures")
+    void databaseUnavailable_is503_withAFixedMessage_andNothingLeaks(Throwable failure) throws Exception {
+        when(productService.getProductById(anyLong())).thenThrow(failure);
+
+        mockMvc.perform(get("/api/v1/products/1").header("X-Correlation-Id", "corr-503"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.error").value("Service Unavailable"))
+                .andExpect(jsonPath("$.message").value("Service temporarily unavailable"))
+                .andExpect(jsonPath("$.path").value("/api/v1/products/1"))
+                .andExpect(jsonPath("$.correlationId").value("corr-503"))
+                .andExpect(content().string(not(containsString("Hikari"))))
+                .andExpect(content().string(not(containsString("postgres"))))
+                .andExpect(content().string(not(containsString("relation products"))));
+    }
+
+    /** Only for the flood test below, so its throttle key (the exception class) is not shared with other tests. */
+    static final class FloodedPoolException extends DataAccessResourceFailureException {
+        FloodedPoolException() {
+            super("pool exhausted");
+        }
+    }
+
+    @Test
+    void aDeadDatabaseUnderLoad_logsOneLineWithoutAStackTrace_notOneLinePerRequest() throws Exception {
+        when(productService.getProductById(anyLong())).thenThrow(new FloodedPoolException());
+
+        for (int i = 0; i < 300; i++) {
+            mockMvc.perform(get("/api/v1/products/" + (i + 1))).andExpect(status().isServiceUnavailable());
+        }
+
+        List<ILoggingEvent> events = logs.list;
+        assertThat(events).as("300 failed requests, one log line").hasSize(1);
+        ILoggingEvent line = events.get(0);
+        assertThat(line.getLevel()).isEqualTo(Level.WARN);
+        assertThat(line.getThrowableProxy()).as("no stack trace for an unavailable dependency").isNull();
+        assertThat(line.getFormattedMessage()).contains("Dependency unavailable").contains("FloodedPoolException");
+    }
+
+    @Test
+    void aBugOnAHotPath_logsOneStackTrace_notOneStackTracePerRequest() throws Exception {
+        when(productService.getProductById(anyLong())).thenAnswer(inv -> {
+            throw new IllegalStateException("bug on the hot path");
+        });
+
+        for (int i = 0; i < 300; i++) {
+            mockMvc.perform(get("/api/v1/products/" + (i + 1)))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.message").value("An unexpected error occurred"));
+        }
+
+        assertThat(logs.list).hasSize(1);
+        ILoggingEvent line = logs.list.get(0);
+        assertThat(line.getLevel()).isEqualTo(Level.ERROR);
+        assertThat(line.getThrowableProxy()).as("the one logged occurrence keeps its stack trace").isNotNull();
+        assertThat(line.getThrowableProxy().getMessage()).isEqualTo("bug on the hot path");
+    }
+
+    @Test
+    void aUniqueConstraintRace_staysA409_andLogsNothing() throws Exception {
+        when(productService.createProduct(any())).thenThrow(new DataIntegrityViolationException(
+                "dup", new SQLException("duplicate key value violates unique constraint", "23505")));
+
+        mockMvc.perform(post("/api/v1/products").header("X-User-Role", "ADMIN").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sku\":\"SKU-1\",\"name\":\"N\",\"price\":1.00,\"stockQuantity\":1}"))
+                .andExpect(status().isConflict());
+
+        assertThat(logs.list).isEmpty();
     }
 }

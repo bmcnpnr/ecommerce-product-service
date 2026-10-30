@@ -7,11 +7,14 @@ import com.ecommerce.product.model.Product;
 import com.ecommerce.product.model.ProductStatus;
 import com.ecommerce.product.repository.CategoryRepository;
 import com.ecommerce.product.repository.ProductRepository;
+import com.ecommerce.product.util.LogSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,12 @@ import java.util.stream.Collectors;
 public class ProductService {
 
     private static final Logger log = LoggerFactory.getLogger(ProductService.class);
+
+    /**
+     * The category list is one flat, admin-created table that callers (catalog-service's sync) read whole, so it
+     * is bounded by design rather than paged: never more than this many rows leave the database in one call.
+     */
+    static final int MAX_CATEGORIES = 1000;
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
@@ -48,7 +57,7 @@ public class ProductService {
                 .status(ProductStatus.ACTIVE)
                 .build();
         Product saved = productRepository.save(product);
-        log.info("Product created: SKU={}", saved.getSku());
+        log.info("Product created: SKU={}", LogSanitizer.clean(saved.getSku()));
         return toDTO(saved);
     }
 
@@ -76,11 +85,10 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProductDTO> getProductsByCategory(Long categoryId) {
+    public List<ProductDTO> getProductsByCategory(Long categoryId, Pageable pageable) {
         categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new CategoryNotFoundException("Category not found: " + categoryId));
-        return productRepository.findByCategoryId(categoryId).stream()
-                .filter(p -> p.getStatus() == ProductStatus.ACTIVE)
+        return productRepository.findByCategoryIdAndStatus(categoryId, ProductStatus.ACTIVE, pageable).stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
@@ -112,23 +120,28 @@ public class ProductService {
 
     @Transactional
     public ProductDTO updateStock(Long id, Integer delta) {
-        productRepository.lockById(id);
-        Product product = productRepository.findById(id)
+        // Row lock with a bounded wait (see the repository): a stuck holder fails this call with a lock timeout
+        // (503) rather than queueing every buyer of the product behind it.
+        Product product = productRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ProductNotFoundException("Product not found with id: " + id));
 
-        int newQuantity = product.getStockQuantity() + delta;
+        int before = product.getStockQuantity();
+        long newQuantity = (long) before + delta; // long: int + int can wrap around
         if (newQuantity < 0) {
             throw new InsufficientStockException(
-                    "Insufficient stock for product " + product.getSku() + ". Available: " + product.getStockQuantity() + ", Requested: " + (-delta));
+                    "Insufficient stock for product " + product.getSku() + ". Available: " + before + ", Requested: " + (-(long) delta));
         }
-        product.setStockQuantity(newQuantity);
+        if (newQuantity > Integer.MAX_VALUE) {
+            throw new InvalidRequestException("Stock quantity out of range");
+        }
+        product.setStockQuantity((int) newQuantity);
         if (newQuantity == 0 && product.getStatus() == ProductStatus.ACTIVE) {
             product.setStatus(ProductStatus.OUT_OF_STOCK);
         } else if (newQuantity > 0 && product.getStatus() == ProductStatus.OUT_OF_STOCK) {
             product.setStatus(ProductStatus.ACTIVE);
         }
         product.setUpdatedAt(LocalDateTime.now());
-        log.info("Stock updated for product {}: {} -> {}", product.getSku(), product.getStockQuantity() - delta, newQuantity);
+        log.info("Stock updated for product {}: {} -> {}", LogSanitizer.clean(product.getSku()), before, newQuantity);
         return toDTO(productRepository.save(product));
     }
 
@@ -139,7 +152,7 @@ public class ProductService {
         product.setStatus(ProductStatus.INACTIVE);
         product.setUpdatedAt(LocalDateTime.now());
         productRepository.save(product);
-        log.info("Product soft-deleted: {}", product.getSku());
+        log.info("Product soft-deleted: {}", LogSanitizer.clean(product.getSku()));
     }
 
     @Transactional
@@ -161,7 +174,8 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<CategoryDTO> getAllCategories() {
-        return categoryRepository.findAll().stream().map(this::toCategoryDTO).collect(Collectors.toList());
+        return categoryRepository.findAll(PageRequest.of(0, MAX_CATEGORIES, Sort.by("id"))).stream()
+                .map(this::toCategoryDTO).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)

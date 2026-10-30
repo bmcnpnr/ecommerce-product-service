@@ -26,6 +26,9 @@ import java.util.List;
 @Tag(name = "Products", description = "Product catalog management")
 public class ProductController {
 
+    /** Product names are at most 200 characters, so a longer search text can never match and only costs a scan. */
+    private static final int MAX_QUERY_LENGTH = 200;
+
     private final ProductService productService;
 
     @PostMapping
@@ -37,7 +40,7 @@ public class ProductController {
 
     @GetMapping
     @Operation(summary = "List all active products")
-    public ResponseEntity<Page<ProductDTO>> getAllProducts(@PageableDefault(size = 20) Pageable pageable) {
+    public ResponseEntity<Page<ProductDTO>> getAllProducts(@PageableDefault(size = 20, sort = "id") Pageable pageable) {
         PageLimits.validate(pageable);
         return ResponseEntity.ok(productService.getAllProducts(pageable));
     }
@@ -58,18 +61,21 @@ public class ProductController {
     @Operation(summary = "Search products by name")
     public ResponseEntity<Page<ProductDTO>> searchProducts(
             @RequestParam String q,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "id") Pageable pageable) {
         PageLimits.validate(pageable);
-        if (q.indexOf('\0') >= 0) {
+        if (q.indexOf('\0') >= 0 || q.length() > MAX_QUERY_LENGTH) {
             throw new InvalidRequestException("Invalid value for parameter 'q'");
         }
         return ResponseEntity.ok(productService.searchProducts(q, pageable));
     }
 
     @GetMapping("/category/{categoryId}")
-    @Operation(summary = "Get products by category")
-    public ResponseEntity<List<ProductDTO>> getProductsByCategory(@PathVariable Long categoryId) {
-        return ResponseEntity.ok(productService.getProductsByCategory(categoryId));
+    @Operation(summary = "Get products by category (first page of at most 100; use page and size for more)")
+    public ResponseEntity<List<ProductDTO>> getProductsByCategory(
+            @PathVariable Long categoryId,
+            @PageableDefault(size = PageLimits.MAX_SIZE, sort = "id") Pageable pageable) {
+        PageLimits.validate(pageable);
+        return ResponseEntity.ok(productService.getProductsByCategory(categoryId, pageable));
     }
 
     @PutMapping("/{id}")

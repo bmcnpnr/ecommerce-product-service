@@ -92,7 +92,7 @@ class ProductServiceTest {
 
     @Test
     void updateStock_success() {
-        when(productRepository.findById(1L)).thenReturn(Optional.of(testProduct));
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
         when(productRepository.save(any())).thenReturn(testProduct);
 
         ProductDTO result = productService.updateStock(1L, -10);
@@ -101,7 +101,7 @@ class ProductServiceTest {
 
     @Test
     void updateStock_insufficientStock_throwsException() {
-        when(productRepository.findById(1L)).thenReturn(Optional.of(testProduct));
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
 
         assertThatThrownBy(() -> productService.updateStock(1L, -200))
                 .isInstanceOf(InsufficientStockException.class)
@@ -110,7 +110,7 @@ class ProductServiceTest {
 
     @Test
     void updateStock_toZero_setsOutOfStock() {
-        when(productRepository.findById(1L)).thenReturn(Optional.of(testProduct));
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
         when(productRepository.save(any())).thenReturn(testProduct);
 
         productService.updateStock(1L, -100);
@@ -226,22 +226,20 @@ class ProductServiceTest {
     }
 
     @Test
-    void getProductsByCategory_returnsOnlyActiveProducts() {
-        Product inactive = Product.builder().id(2L).sku("OLD").name("Old").price(BigDecimal.ONE)
-                .status(ProductStatus.INACTIVE).build();
-        Product outOfStock = Product.builder().id(3L).sku("OOS").name("Gone").price(BigDecimal.ONE)
-                .stockQuantity(0).status(ProductStatus.OUT_OF_STOCK).build();
+    void getProductsByCategory_asksTheDatabaseForOneActivePage_neverLoadsTheWholeCategory() {
         when(categoryRepository.findById(10L)).thenReturn(Optional.of(Category.builder().id(10L).name("C").build()));
-        when(productRepository.findByCategoryId(10L)).thenReturn(List.of(testProduct, inactive, outOfStock));
+        Pageable page = PageRequest.of(0, 100);
+        when(productRepository.findByCategoryIdAndStatus(10L, ProductStatus.ACTIVE, page)).thenReturn(List.of(testProduct));
 
-        assertThat(productService.getProductsByCategory(10L)).extracting(ProductDTO::getSku).containsExactly("SKU-001");
+        assertThat(productService.getProductsByCategory(10L, page)).extracting(ProductDTO::getSku).containsExactly("SKU-001");
+        verify(productRepository, never()).findByCategoryId(anyLong());
     }
 
     @Test
     void getProductsByCategory_unknownCategory_throws() {
         when(categoryRepository.findById(10L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> productService.getProductsByCategory(10L))
+        assertThatThrownBy(() -> productService.getProductsByCategory(10L, PageRequest.of(0, 100)))
                 .isInstanceOf(CategoryNotFoundException.class);
         verifyNoInteractions(productRepository);
     }
@@ -313,7 +311,7 @@ class ProductServiceTest {
 
     @Test
     void updateStock_increment_keepsActive() {
-        when(productRepository.findById(1L)).thenReturn(Optional.of(testProduct));
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
         when(productRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ProductDTO result = productService.updateStock(1L, 25);
@@ -327,7 +325,7 @@ class ProductServiceTest {
     void updateStock_restockFromOutOfStock_reactivates() {
         testProduct.setStockQuantity(0);
         testProduct.setStatus(ProductStatus.OUT_OF_STOCK);
-        when(productRepository.findById(1L)).thenReturn(Optional.of(testProduct));
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
         when(productRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ProductDTO result = productService.updateStock(1L, 4);
@@ -340,7 +338,7 @@ class ProductServiceTest {
     void updateStock_zeroDeltaOnEmptyStock_staysOutOfStock() {
         testProduct.setStockQuantity(0);
         testProduct.setStatus(ProductStatus.OUT_OF_STOCK);
-        when(productRepository.findById(1L)).thenReturn(Optional.of(testProduct));
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
         when(productRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         assertThat(productService.updateStock(1L, 0).getStatus()).isEqualTo("OUT_OF_STOCK");
@@ -349,7 +347,7 @@ class ProductServiceTest {
     @Test
     void updateStock_restockOfInactiveProduct_staysInactive() {
         testProduct.setStatus(ProductStatus.INACTIVE);
-        when(productRepository.findById(1L)).thenReturn(Optional.of(testProduct));
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
         when(productRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         assertThat(productService.updateStock(1L, 10).getStatus()).isEqualTo("INACTIVE");
@@ -358,7 +356,7 @@ class ProductServiceTest {
     @Test
     void updateStock_drainingInactiveProduct_staysInactive() {
         testProduct.setStatus(ProductStatus.INACTIVE);
-        when(productRepository.findById(1L)).thenReturn(Optional.of(testProduct));
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
         when(productRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         productService.updateStock(1L, -100);
@@ -370,7 +368,7 @@ class ProductServiceTest {
     @Test
     void updateStock_insufficient_reportsAvailableAndRequested_andDoesNotSave() {
         testProduct.setStockQuantity(3);
-        when(productRepository.findById(1L)).thenReturn(Optional.of(testProduct));
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
 
         assertThatThrownBy(() -> productService.updateStock(1L, -4))
                 .isInstanceOf(InsufficientStockException.class)
@@ -381,11 +379,74 @@ class ProductServiceTest {
 
     @Test
     void updateStock_productNotFound_throws() {
-        when(productRepository.findById(9L)).thenReturn(Optional.empty());
+        when(productRepository.findByIdForUpdate(9L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> productService.updateStock(9L, -1))
                 .isInstanceOf(ProductNotFoundException.class)
                 .hasMessage("Product not found with id: 9");
+    }
+
+    @Test
+    void updateStock_restockBeyondIntRange_isRejectedAndNothingIsWritten() {
+        testProduct.setStockQuantity(Integer.MAX_VALUE - 1);
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
+
+        // MAX-1 + 5 wraps to a negative int: it must not be mistaken for "insufficient stock" nor stored.
+        assertThatThrownBy(() -> productService.updateStock(1L, 5))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessage("Stock quantity out of range");
+        assertThat(testProduct.getStockQuantity()).isEqualTo(Integer.MAX_VALUE - 1);
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    void updateStock_exactlyIntegerMaxIsStillAllowed() {
+        testProduct.setStockQuantity(Integer.MAX_VALUE - 1);
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
+        when(productRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(productService.updateStock(1L, 1).getStockQuantity()).isEqualTo(Integer.MAX_VALUE);
+    }
+
+    @Test
+    void updateStock_minimumIntegerDelta_reportsTheRealRequestedQuantity() {
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
+
+        // -Integer.MIN_VALUE overflows int; the message must still say 2147483648, not a negative number.
+        assertThatThrownBy(() -> productService.updateStock(1L, Integer.MIN_VALUE))
+                .isInstanceOf(InsufficientStockException.class)
+                .hasMessage("Insufficient stock for product SKU-001. Available: 100, Requested: 2147483648");
+    }
+
+    @Test
+    void theStockLogLine_cannotBeForgedThroughAnAdminChosenSku() {
+        ch.qos.logback.classic.Logger serviceLogger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(ProductService.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> logs = new ch.qos.logback.core.read.ListAppender<>();
+        logs.start();
+        serviceLogger.addAppender(logs);
+        try {
+            testProduct.setSku("SKU-1\n2026-10-30 00:00:00 ERROR forged line");
+            when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
+            when(productRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            productService.updateStock(1L, -1);
+
+            assertThat(logs.list).hasSize(1);
+            assertThat(logs.list.get(0).getFormattedMessage()).doesNotContain("\n").contains("SKU-1_2026-10-30");
+        } finally {
+            serviceLogger.detachAppender(logs);
+        }
+    }
+
+    @Test
+    void updateStock_locksTheRowBeforeReadingIt_andNeverReadsItWithoutTheLock() {
+        when(productRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(testProduct));
+        when(productRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        productService.updateStock(1L, -1);
+
+        verify(productRepository).findByIdForUpdate(1L);
+        verify(productRepository, never()).findById(any());
     }
 
     @Test
@@ -429,13 +490,23 @@ class ProductServiceTest {
 
     @Test
     void getAllCategories_mapsEveryCategory() {
-        when(categoryRepository.findAll()).thenReturn(List.of(
+        when(categoryRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(
                 Category.builder().id(1L).name("A").build(),
-                Category.builder().id(2L).name("B").parentCategoryId(1L).build()));
+                Category.builder().id(2L).name("B").parentCategoryId(1L).build())));
 
         assertThat(productService.getAllCategories())
                 .extracting(CategoryDTO::getName, CategoryDTO::getParentCategoryId)
                 .containsExactly(tuple("A", null), tuple("B", 1L));
+    }
+
+    @Test
+    void getAllCategories_isBoundedByDesign_orderedById() {
+        when(categoryRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
+
+        productService.getAllCategories();
+
+        verify(categoryRepository).findAll(PageRequest.of(0, ProductService.MAX_CATEGORIES, org.springframework.data.domain.Sort.by("id")));
+        verify(categoryRepository, never()).findAll();
     }
 
     @Test

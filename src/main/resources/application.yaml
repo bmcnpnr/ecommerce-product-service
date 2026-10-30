@@ -9,6 +9,17 @@ spring:
     username: ${DB_USERNAME:productuser}
     password: ${DB_PASSWORD:productpass}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      # A request waits at most 5s for a connection (default 30s), then fails with a 503 instead of
+      # queueing request threads behind a dead or saturated database.
+      connection-timeout: 5000
+      # pgjdbc defaults to no socket timeout: a database that stops answering (dropped packets, a frozen host, a
+      # failover without a reset) would hold the request thread until the OS gives up, many minutes later. Hikari's
+      # connection-timeout only bounds the wait for a connection, not a read on one that is already open.
+      data-source-properties:
+        connectTimeout: 5   # seconds
+        socketTimeout: 30   # seconds a read may block; statements here take milliseconds
+        tcpKeepAlive: true
   jackson:
     deserialization:
       # 1.5 for an integer field is a 400, not a silent 1 (S-42)
@@ -21,6 +32,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+    # Controllers only touch DTOs built inside the services' transactions, so nothing needs the EntityManager
+    # after the service returns. With it open (the Boot default) a read outside a transaction would keep its
+    # connection until the response is written; off, a connection is held only while a transaction runs.
+    open-in-view: false
     show-sql: false
     # No hibernate.dialect: Hibernate detects it from the connection (PostgreSQL
     # here, H2 under the test profile); setting it explicitly is deprecated.
@@ -88,6 +103,15 @@ springdoc:
 
 logging:
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{correlationId}] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{correlationId:-}] [%X{traceId:-}] %-5level %logger{36} - %msg%n"
   level:
-    com.ecommerce: DEBUG
+    # INFO by default; LOGGING_LEVEL_COM_ECOMMERCE=DEBUG turns debug on for a diagnosis.
+    com.ecommerce: INFO
+    # Hibernate writes two lines (WARN "SQL Error: ..." and ERROR with the message) for every failed JDBC call, with no
+    # throttle: a pair per request for as long as the database is down. The exception handler's throttled line
+    # carries the same cause once per window.
+    org.hibernate.orm.jdbc.error: "OFF"
+    # Logs "Application exception overridden by rollback exception" with a stack trace of several hundred lines for
+    # every transaction that was in flight when its connection died (a killed backend, a database restart): up to one
+    # per pooled connection. The exception handler reports the failure once per window, with the root cause.
+    org.springframework.transaction.interceptor.TransactionInterceptor: "OFF"
